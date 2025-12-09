@@ -12,7 +12,7 @@ def main():
     paso, y muestra los resultados con visualización.
     """
     print("\n" + "="*70)
-    print("🚶 SIMULACIÓN RANDOM WALK 2D CON LÍMITES")
+    print("🚶 SIMULACIÓN SIMPLE RANDOM WALK 2D CON LÍMITES")
     print("   Visualización Gradual del Camino")
     print("="*70 + "\n")
     
@@ -20,8 +20,8 @@ def main():
     try:
         print("📋 CONFIGURACIÓN DEL ENTORNO")
         print("-" * 70)
-        ancho = int(input("Ingrese el ancho del entorno (default: 50): ") or "50")
-        alto = int(input("Ingrese el alto del entorno (default: 50): ") or "50")
+        ancho = int(input("Ingrese el ancho del entorno (default: 30): ") or "30")
+        alto = int(input("Ingrese el alto del entorno (default: 30): ") or "30")
         num_pasos = int(input("Ingrese el número de pasos a simular: "))
         
         print("\n🎮 OPCIONES DE VISUALIZACIÓN")
@@ -74,7 +74,7 @@ def main():
     print("3. Ambos")
     print("4. Ninguno")
     
-    opcion_visual = input("\nSeleccione opción (1/2/3/4) [default: 1]: ") or "1"
+    opcion_visual = input("\nSeleccione opción (1/2/3/4) [default: 2]: ") or "2"
     
     try:
         if opcion_visual in ["1", "3"]:
@@ -83,7 +83,7 @@ def main():
         
         if opcion_visual in ["2", "3"]:
             print("\n🎬 Generando animación...")
-            intervalo = int(input("Velocidad de animación en ms (default: 50): ") or "50")
+            intervalo = int(input("Velocidad de animación en ms (default: 70): ") or "70")
             Visualizador.visualizar_camino_animado(estadisticas, entorno, intervalo)
             
     except Exception as e:
@@ -91,7 +91,7 @@ def main():
         print("💡 Asegúrese de tener matplotlib instalado: pip install matplotlib")
     
     print("\n" + "="*70)
-    print("✅ Simulación finalizada. ¡Gracias por usar el programa!")
+    print("✅ Simulación finalizada.")
     print("="*70 + "\n")
 
 
