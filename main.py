@@ -8,52 +8,51 @@ def main():
     Función principal que ejecuta la simulación de población de forma visual.
     """
     print("\n" + "="*70)
-    print("🌍 SIMULACIÓN VISUAL DE POBLACIÓN CON RANDOM WALK")
-    print("   Sistema de Supervivencia y Reproducción en Tiempo Real")
+    print("SIMULACION VISUAL DE POBLACION CON RANDOM WALK")
+    print("   Sistema de Supervivencia y Reproduccion en Tiempo Real")
     print("="*70 + "\n")
     
     # ==================== CONFIGURACIÓN ====================
     try:
-        print("📋 CONFIGURACIÓN DEL ENTORNO")
+        print("CONFIGURACION DEL ENTORNO")
         print("-" * 70)
         ancho = int(input("Ancho del entorno (default: 40): ") or "40")
         alto = int(input("Alto del entorno (default: 40): ") or "40")
         porcentaje_comida = float(input("Porcentaje de comida 0-1 (default: 0.15): ") or "0.15")
         
-        print("\n📋 CONFIGURACIÓN DE LA SIMULACIÓN")
+        print("\nCONFIGURACION DE LA SIMULACION")
         print("-" * 70)
-        num_particulas = int(input("Número de partículas iniciales (default: 3): ") or "3")
-        pasos_por_dia = int(input("Pasos por día (default: 80): ") or "80")
-        max_dias = int(input("Días máximos a simular (default: 20): ") or "20")
+        num_particulas = int(input("Numero de particulas iniciales (default: 3): ") or "3")
+        pasos_por_dia = int(input("Pasos por dia (default: 80): ") or "80")
         
-        print("\n🎬 CONFIGURACIÓN DE VISUALIZACIÓN")
+        print("\nCONFIGURACION DE VISUALIZACION")
         print("-" * 70)
-        print("💡 Velocidades sugeridas:")
-        print("   - 10ms: Muy rápido (observación general)")
-        print("   - 30ms: Rápido (recomendado)")
+        print("Velocidades sugeridas:")
+        print("   - 10ms: Muy rapido (observacion general)")
+        print("   - 30ms: Rapido (recomendado)")
         print("   - 50ms: Medio (buena visibilidad)")
-        print("   - 100ms: Lento (análisis detallado)")
+        print("   - 100ms: Lento (analisis detallado)")
         intervalo = int(input("\nVelocidad en ms (default: 30): ") or "30")
         
     except ValueError:
-        print("❌ Error: Debe ingresar valores numéricos válidos")
+        print("Error: Debe ingresar valores numericos validos")
         return
     
     # Validaciones
     if ancho <= 0 or alto <= 0:
-        print("❌ Error: Las dimensiones deben ser positivas")
+        print("Error: Las dimensiones deben ser positivas")
         return
     
     if porcentaje_comida < 0 or porcentaje_comida > 1:
-        print("❌ Error: El porcentaje de comida debe estar entre 0 y 1")
+        print("Error: El porcentaje de comida debe estar entre 0 y 1")
         return
     
     if num_particulas <= 0 or pasos_por_dia <= 0:
-        print("❌ Error: Número de partículas y pasos deben ser positivos")
+        print("Error: Numero de particulas y pasos deben ser positivos")
         return
     
     # ==================== CREAR SIMULACIÓN ====================
-    print("\n🔧 Inicializando simulación...")
+    print("\nInicializando simulacion...")
     entorno = Entorno(ancho=ancho, alto=alto, porcentaje_comida=porcentaje_comida)
     simulacion = Simulacion(
         entorno=entorno,
@@ -63,36 +62,39 @@ def main():
     
     # ==================== EJECUTAR SIMULACIÓN VISUAL ====================
     print("\n" + "="*70)
-    print("🎬 PREPARANDO VENTANA DE SIMULACIÓN...")
+    print("PREPARANDO VENTANA DE SIMULACION...")
     print("="*70)
-    print("⚠️  La ventana se abrirá en unos segundos")
-    print("⚠️  NO cierres esta consola, aquí verás los reportes de cada día")
+    print("La ventana se abrira en unos segundos")
+    print("NO cierres esta consola, aqui veras los reportes de cada dia")
+    print("La simulacion continuara hasta que todas las particulas mueran")
+    print("o hasta que cierres la ventana de visualizacion")
     print("="*70 + "\n")
     
     try:
         Visualizador.simular_visualmente(
             simulacion=simulacion,
-            max_dias=max_dias,
             intervalo=intervalo
         )
         
+    except KeyboardInterrupt:
+        print("\n\nSimulacion interrumpida por el usuario")
     except Exception as e:
-        print(f"\n❌ Error durante la simulación: {e}")
-        print("💡 Asegúrese de tener matplotlib instalado: pip install matplotlib")
+        print(f"\nError durante la simulacion: {e}")
+        print("Asegurese de tener matplotlib instalado: pip install matplotlib")
         import traceback
         traceback.print_exc()
         return
     
     # ==================== MOSTRAR RESULTADOS ====================
     print("\n" + "="*70)
-    print("✅ SIMULACIÓN FINALIZADA")
+    print("SIMULACION FINALIZADA")
     print("="*70)
     
     if simulacion.historial_dias:
-        print(f"\n📊 ESTADÍSTICAS FINALES:")
+        print(f"\nESTADISTICAS FINALES:")
         print(f"{'='*70}")
-        print(f"Días simulados: {len(simulacion.historial_dias)}")
-        print(f"Partículas finales: {simulacion.historial_dias[-1]['particulas_finales']}")
+        print(f"Dias simulados: {len(simulacion.historial_dias)}")
+        print(f"Particulas finales: {simulacion.historial_dias[-1]['particulas_finales']}")
         
         total_muertes = sum([d['muertes'] for d in simulacion.historial_dias])
         total_reproducciones = sum([d['reproducciones'] for d in simulacion.historial_dias])
@@ -102,54 +104,54 @@ def main():
         print(f"{'='*70}")
         
         if simulacion.historial_dias[-1]['particulas_finales'] > 0:
-            print("\n🎉 ¡LA POBLACIÓN SOBREVIVIÓ!")
+            print("\nLA POBLACION SOBREVIVIO!")
         else:
-            print("\n💀 LA POBLACIÓN SE EXTINGUIÓ")
+            print("\nLA POBLACION SE EXTINGUIO")
     
     print("="*70 + "\n")
     
     # ==================== OPCIONES POST-SIMULACIÓN ====================
     while True:
-        print("📊 OPCIONES POST-SIMULACIÓN")
+        print("OPCIONES POST-SIMULACION")
         print("-" * 70)
-        print("1. Ver gráficas de estadísticas")
-        print("2. Ver resumen detallado día por día")
+        print("1. Ver graficas de estadisticas")
+        print("2. Ver resumen detallado dia por dia")
         print("3. Salir")
         
-        opcion = input("\nSeleccione opción (1/2/3) [default: 3]: ") or "3"
+        opcion = input("\nSeleccione opcion (1/2/3) [default: 3]: ") or "3"
         
         if opcion == "1":
             if simulacion.historial_dias:
                 try:
-                    print("\n📊 Generando gráficas...")
+                    print("\nGenerando graficas...")
                     Visualizador.graficar_estadisticas(simulacion.historial_dias)
                 except Exception as e:
-                    print(f"❌ Error al generar gráficas: {e}")
+                    print(f"Error al generar graficas: {e}")
             else:
-                print("⚠️  No hay datos para graficar")
+                print("No hay datos para graficar")
         
         elif opcion == "2":
             if simulacion.historial_dias:
                 print(f"\n{'='*70}")
-                print("📋 RESUMEN DETALLADO POR DÍA")
+                print("RESUMEN DETALLADO POR DIA")
                 print(f"{'='*70}")
                 
                 for dia in simulacion.historial_dias:
-                    print(f"\n🌅 DÍA {dia['dia']}:")
-                    print(f"   Partículas al final: {dia['particulas_finales']}")
+                    print(f"\nDIA {dia['dia']}:")
+                    print(f"   Particulas al final: {dia['particulas_finales']}")
                     print(f"   Muertes: {dia['muertes']}")
                     print(f"   Reproducciones: {dia['reproducciones']}")
                     print(f"   Comida restante al final: {dia['comida_restante']}")
                 
                 print(f"\n{'='*70}")
             else:
-                print("⚠️  No hay datos para mostrar")
+                print("No hay datos para mostrar")
         
         else:
             break
     
     print("\n" + "="*70)
-    print("✅ Programa finalizado. ¡Gracias por usar el simulador!")
+    print("Programa finalizado. Gracias por usar el simulador!")
     print("="*70 + "\n")
 
 

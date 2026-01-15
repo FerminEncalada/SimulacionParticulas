@@ -33,16 +33,30 @@ class Entorno:
     
     def _generar_comida(self):
         """
-        Genera comida aleatoriamente en el mapa según el porcentaje establecido.
+        Genera comida aleatoriamente SOLO en el área interna (no en los bordes).
         """
-        total_celdas = self.ancho * self.alto
-        cantidad_comida = int(total_celdas * self.porcentaje_comida)
+        # Generar solo en el área interna (excluyendo los bordes)
+        posiciones_internas = [
+            (x, y) 
+            for x in range(1, self.ancho - 1) 
+            for y in range(1, self.alto - 1)
+        ]
+        
+        total_celdas_internas = len(posiciones_internas)
+        cantidad_comida = int(total_celdas_internas * self.porcentaje_comida)
+        
+        # Asegurar que haya al menos algo de comida
+        if cantidad_comida == 0 and total_celdas_internas > 0:
+            cantidad_comida = 1
         
         # Generar posiciones aleatorias únicas para la comida
-        todas_posiciones = [(x, y) for x in range(self.ancho) for y in range(self.alto)]
-        posiciones_seleccionadas = random.sample(todas_posiciones, cantidad_comida)
+        if cantidad_comida > 0 and len(posiciones_internas) > 0:
+            posiciones_seleccionadas = random.sample(posiciones_internas, 
+                                                    min(cantidad_comida, len(posiciones_internas)))
+            self.posiciones_comida = set(posiciones_seleccionadas)
+        else:
+            self.posiciones_comida = set()
         
-        self.posiciones_comida = set(posiciones_seleccionadas)
         self.comida_total = len(self.posiciones_comida)
         self.comida_actual = self.comida_total
     

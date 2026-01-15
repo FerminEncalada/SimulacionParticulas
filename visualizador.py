@@ -8,8 +8,275 @@ class Visualizador:
     Clase para visualizar la simulación de población en tiempo real.
     """
     
+import matplotlib.pyplot as plt
+import matplotlib.patches as patches
+from matplotlib.animation import FuncAnimation
+import numpy as np
+
+class Visualizador:
+    """
+    Clase para visualizar la simulación de población en tiempo real.
+    """
+    
     @staticmethod
-    def simular_visualmente(simulacion, max_dias=50, intervalo=30):
+    def simular_visualmente(simulacion, intervalo=30):
+        """
+        Ejecuta y visualiza la simulación en tiempo real hasta que todas las partículas mueran.
+        
+        Args:
+            simulacion (Simulacion): La simulación a ejecutar
+            intervalo (int): Milisegundos entre frames
+        """
+        entorno = simulacion.entorno
+        pasos_por_dia = simulacion.pasos_por_dia
+        
+        # Crear figura más grande
+        fig, ax = plt.subplots(figsize=(18, 16))
+        
+        # Configurar límites con más espacio
+        margen = 2
+        ax.set_xlim(-margen, entorno.ancho + margen)
+        ax.set_ylim(-margen, entorno.alto + margen)
+        ax.set_aspect('equal')
+        ax.set_facecolor('#e8f4f8')
+        fig.patch.set_facecolor('white')
+        ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+        ax.invert_yaxis()
+        
+        # Dibujar casa (bordes verdes más visibles)
+        casa_color = '#2ecc71'
+        grosor_casa = 0.8
+        ax.add_patch(patches.Rectangle((0, 0), entorno.ancho - 1, grosor_casa, 
+                                      color=casa_color, alpha=0.7, label='Casa (Zona Segura)', zorder=1))
+        ax.add_patch(patches.Rectangle((0, entorno.alto - grosor_casa), entorno.ancho - 1, grosor_casa, 
+                                      color=casa_color, alpha=0.7, zorder=1))
+        ax.add_patch(patches.Rectangle((0, 0), grosor_casa, entorno.alto - 1, 
+                                      color=casa_color, alpha=0.7, zorder=1))
+        ax.add_patch(patches.Rectangle((entorno.ancho - grosor_casa, 0), grosor_casa, entorno.alto - 1, 
+                                      color=casa_color, alpha=0.7, zorder=1))
+        
+        ax.set_xlabel('X', fontsize=14, fontweight='bold')
+        ax.set_ylabel('Y', fontsize=14, fontweight='bold')
+        
+        # Título principal
+        titulo = ax.text(0.5, 1.06, '', transform=ax.transAxes, 
+                        fontsize=16, fontweight='bold', ha='center',
+                        bbox=dict(boxstyle='round', facecolor='lightblue', alpha=0.8))
+        
+        # Panel de información más grande y visible
+        contador_texto = ax.text(0.02, 0.98, '', transform=ax.transAxes,
+                                fontsize=13, fontweight='bold', 
+                                verticalalignment='top',
+                                bbox=dict(boxstyle='round,pad=0.8', 
+                                        facecolor='white', alpha=0.95,
+                                        edgecolor='black', linewidth=2),
+                                zorder=10,
+                                family='monospace')
+        
+        # Scatter para comida (más grande y visible)
+        scatter_comida = ax.scatter([], [], c='#ff6b35', s=80, alpha=0.9, 
+                                   marker='o', label='Comida', zorder=3, 
+                                   edgecolors='#c44616', linewidths=1.5)
+        
+        ax.legend(loc='upper right', fontsize=11, framealpha=0.9)
+        
+        # Variables de estado
+        paso_en_dia = 0
+        dia_actual = 1
+        elementos_particulas = []
+        simulacion_activa = True
+        
+        def init():
+            # Mostrar comida inicial
+            if entorno.posiciones_comida:
+                comida_x = [pos[0] for pos in entorno.posiciones_comida]
+                comida_y = [pos[1] for pos in entorno.posiciones_comida]
+                scatter_comida.set_offsets(np.column_stack([comida_x, comida_y]))
+            
+            titulo.set_text('Simulacion de Poblacion - INICIANDO...')
+            contador_texto.set_text(
+                f'Particulas: {len(simulacion.particulas)}\n'
+                f'Comida: {len(entorno.posiciones_comida)}\n'
+                f'Dia: 1\n'
+                f'Paso: 0/{pasos_por_dia}'
+            )
+            return [scatter_comida, titulo, contador_texto]
+        
+        def animate(frame):
+            nonlocal paso_en_dia, dia_actual, elementos_particulas, simulacion_activa
+            
+            if not simulacion_activa:
+                return [scatter_comida, titulo, contador_texto]
+            
+            # Limpiar elementos anteriores
+            for elemento in elementos_particulas:
+                try:
+                    elemento.remove()
+                except:
+                    pass
+            elementos_particulas.clear()
+            
+            # Verificar si hay partículas
+            if len(simulacion.particulas) == 0:
+                titulo.set_text('SIMULACION FINALIZADA - Todas las particulas murieron')
+                contador_texto.set_text(
+                    f'Dia final: {dia_actual - 1}\n'
+                    f'Particulas: 0\n'
+                    f'Estado: EXTINCION'
+                )
+                simulacion_activa = False
+                print(f"\n{'='*70}")
+                print("SIMULACION TERMINADA - EXTINCION TOTAL")
+                print(f"{'='*70}\n")
+                return [scatter_comida, titulo, contador_texto]
+            
+            # Realizar un paso para cada partícula
+            for particula in simulacion.particulas:
+                particula.realizar_paso()
+            
+            paso_en_dia += 1
+            
+            # Actualizar visualización de comida
+            if entorno.posiciones_comida:
+                comida_x = [pos[0] for pos in entorno.posiciones_comida]
+                comida_y = [pos[1] for pos in entorno.posiciones_comida]
+                scatter_comida.set_offsets(np.column_stack([comida_x, comida_y]))
+            else:
+                scatter_comida.set_offsets(np.empty((0, 2)))
+            
+            # Dibujar partículas y sus caminos
+            for i, particula in enumerate(simulacion.particulas):
+                # Dibujar camino completo (más grueso y visible)
+                if len(particula.camino) > 1:
+                    xs = [pos[0] for pos in particula.camino]
+                    ys = [pos[1] for pos in particula.camino]
+                    linea, = ax.plot(xs, ys, '-', linewidth=2.5, 
+                                   color=particula.color, alpha=0.6, zorder=2)
+                    elementos_particulas.append(linea)
+                
+                # Dibujar posición actual (más grande)
+                x, y = particula.posicion_actual
+                punto = ax.scatter([x], [y], c=[particula.color], 
+                                 s=300, edgecolors='black', linewidths=3, 
+                                 zorder=5, alpha=1.0)
+                elementos_particulas.append(punto)
+                
+                # Mostrar ID (más visible)
+                texto = ax.text(x, y - 2.5, f'#{particula.id}', 
+                              fontsize=10, ha='center', va='top', fontweight='bold',
+                              bbox=dict(boxstyle='round,pad=0.4', 
+                                      facecolor='white', alpha=0.9, 
+                                      edgecolor='black', linewidth=1.5),
+                              zorder=6)
+                elementos_particulas.append(texto)
+                
+                # Indicador de comida consumida (sin emoji problemático)
+                if particula.comida_consumida > 0:
+                    comida_text = ax.text(x, y + 2.5, f'x{particula.comida_consumida}', 
+                                        fontsize=11, ha='center', va='bottom',
+                                        bbox=dict(boxstyle='round,pad=0.3', 
+                                                facecolor='#ffeb3b', alpha=0.9,
+                                                edgecolor='#f57c00', linewidth=1.5),
+                                        zorder=6, fontweight='bold')
+                    elementos_particulas.append(comida_text)
+            
+            # Actualizar título
+            progreso = (paso_en_dia / pasos_por_dia) * 100
+            titulo.set_text(f'Simulacion de Poblacion - DIA {dia_actual} - {progreso:.1f}% completado')
+            
+            # Actualizar contador
+            contador_texto.set_text(
+                f'Particulas: {len(simulacion.particulas)}\n'
+                f'Comida: {len(entorno.posiciones_comida)}\n'
+                f'Dia: {dia_actual}\n'
+                f'Paso: {paso_en_dia}/{pasos_por_dia}'
+            )
+            
+            # Verificar si terminó el día
+            if paso_en_dia >= pasos_por_dia:
+                # Evaluar fin del día
+                sobrevivientes = []
+                reproducciones = 0
+                muertes = 0
+                
+                for particula in simulacion.particulas:
+                    resultado = particula.evaluar_fin_dia()
+                    
+                    if resultado['sobrevive']:
+                        sobrevivientes.append(particula)
+                        
+                        if resultado['reproduce']:
+                            hijo = particula.crear_hijo(simulacion._obtener_nuevo_id())
+                            sobrevivientes.append(hijo)
+                            reproducciones += 1
+                    else:
+                        muertes += 1
+                        particula.viva = False
+                
+                # Actualizar partículas
+                simulacion.particulas = sobrevivientes
+                
+                # Guardar estadísticas
+                estadisticas = {
+                    'dia': dia_actual,
+                    'particulas_finales': len(simulacion.particulas),
+                    'muertes': muertes,
+                    'reproducciones': reproducciones,
+                    'comida_restante': entorno.comida_actual
+                }
+                simulacion.historial_dias.append(estadisticas)
+                
+                print(f"\n{'='*70}")
+                print(f"FIN DEL DIA {dia_actual}")
+                print(f"{'='*70}")
+                print(f"Sobrevivientes: {len(simulacion.particulas)}")
+                print(f"Muertes: {muertes}")
+                print(f"Reproducciones: {reproducciones}")
+                print(f"Comida restante: {entorno.comida_actual}")
+                print(f"{'='*70}\n")
+                
+                # REESTABLECER COMIDA para el nuevo día
+                entorno.reestablecer_comida()
+                print(f"Comida reestablecida: {entorno.comida_actual} unidades\n")
+                
+                # Preparar siguiente día
+                dia_actual += 1
+                paso_en_dia = 0
+                simulacion.dia_actual = dia_actual
+                
+                for particula in simulacion.particulas:
+                    particula.preparar_nuevo_dia()
+            
+            return [scatter_comida, titulo, contador_texto] + elementos_particulas
+        
+        # Frames infinitos (se detendrá cuando no haya partículas)
+        frames_totales = 100000  # Número muy alto para simular infinito
+        
+        print(f"\n{'='*70}")
+        print("INICIANDO SIMULACION VISUAL EN TIEMPO REAL")
+        print(f"{'='*70}")
+        print(f"Dimensiones: {entorno.ancho}x{entorno.alto}")
+        print(f"Particulas iniciales: {len(simulacion.particulas)}")
+        print(f"Comida inicial: {entorno.comida_total}")
+        print(f"Pasos por dia: {pasos_por_dia}")
+        print(f"Velocidad: {intervalo}ms por frame")
+        print(f"{'='*70}")
+        print("Observa como las particulas se mueven, comen y sobreviven")
+        print("Los bordes VERDES son la CASA (zona segura)")
+        print("Los puntos NARANJAS son COMIDA")
+        print("La comida se RESTABLECE cada dia en nuevas posiciones")
+        print("La simulacion continuara hasta que todas las particulas mueran")
+        print("Presiona CTRL+C en la consola o cierra la ventana para detener")
+        print(f"{'='*70}\n")
+        
+        anim = FuncAnimation(fig, animate, init_func=init, 
+                           frames=frames_totales,
+                           interval=intervalo, blit=False, repeat=False)
+        
+        plt.tight_layout()
+        plt.show()
+        
+        return anim
         """
         Ejecuta y visualiza la simulación en tiempo real.
         
