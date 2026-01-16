@@ -11,6 +11,7 @@ class Entorno:
         posiciones_comida (set): Conjunto de posiciones (x, y) con comida
         comida_total (int): Cantidad total de comida inicial
         comida_actual (int): Cantidad de comida restante
+        particulas_en_posicion (dict): Diccionario de posiciones -> lista de partículas
     """
     
     def __init__(self, ancho=100, alto=100, porcentaje_comida=0.20):
@@ -28,6 +29,7 @@ class Entorno:
         self.posiciones_comida = set()
         self.comida_total = 0
         self.comida_actual = 0
+        self.particulas_en_posicion = {}
         
         self._generar_comida()
     
@@ -106,22 +108,73 @@ class Entorno:
         """
         return (x, y) in self.posiciones_comida
     
-    def consumir_comida(self, x, y):
+    def consumir_comida(self, x, y, particula):
         """
-        Consume la comida en una posición si existe.
+        Consume la comida en una posición si existe, considerando prioridad.
         
         Args:
             x (int): Coordenada X
             y (int): Coordenada Y
+            particula (Particula): La partícula que intenta consumir
             
         Returns:
-            bool: True si se consumió comida, False si no había comida
+            bool: True si se consumió comida, False si no había comida o perdió por prioridad
         """
-        if (x, y) in self.posiciones_comida:
+        if (x, y) not in self.posiciones_comida:
+            return False
+        
+        # Registrar que esta partícula está en esta posición
+        pos_key = (x, y)
+        if pos_key not in self.particulas_en_posicion:
+            self.particulas_en_posicion[pos_key] = []
+        
+        # Verificar si ya hay partículas con prioridad en esta posición
+        particulas_aqui = self.particulas_en_posicion[pos_key]
+        
+        # Si la partícula actual tiene prioridad
+        if particula.mutacion == 'prioridad':
+            # Consume la comida sin importar quién más esté
             self.posiciones_comida.remove((x, y))
             self.comida_actual -= 1
+            # Limpiar registro de esta posición
+            if pos_key in self.particulas_en_posicion:
+                del self.particulas_en_posicion[pos_key]
             return True
-        return False
+        else:
+            # Si no tiene prioridad, verificar si hay alguien con prioridad
+            for p in particulas_aqui:
+                if p.mutacion == 'prioridad':
+                    # Hay una partícula con prioridad, esta no come
+                    return False
+            
+            # No hay partículas con prioridad, puede comer
+            self.posiciones_comida.remove((x, y))
+            self.comida_actual -= 1
+            # Limpiar registro de esta posición
+            if pos_key in self.particulas_en_posicion:
+                del self.particulas_en_posicion[pos_key]
+            return True
+    
+    def registrar_particula_en_posicion(self, x, y, particula):
+        """
+        Registra una partícula en una posición específica.
+        
+        Args:
+            x (int): Coordenada X
+            y (int): Coordenada Y
+            particula (Particula): La partícula a registrar
+        """
+        pos_key = (x, y)
+        if pos_key not in self.particulas_en_posicion:
+            self.particulas_en_posicion[pos_key] = []
+        if particula not in self.particulas_en_posicion[pos_key]:
+            self.particulas_en_posicion[pos_key].append(particula)
+    
+    def limpiar_registro_posiciones(self):
+        """
+        Limpia el registro de partículas en posiciones.
+        """
+        self.particulas_en_posicion = {}
     
     def obtener_dimensiones(self):
         """

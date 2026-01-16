@@ -137,10 +137,20 @@ def main():
                 print(f"{'='*70}")
                 
                 for dia in simulacion.historial_dias:
+                    normales = dia.get('normales', 0)
+                    velocidad = dia.get('velocidad', 0)
+                    prioridad = dia.get('prioridad', 0)
+                    
                     print(f"\nDIA {dia['dia']}:")
                     print(f"   Particulas al final: {dia['particulas_finales']}")
+                    print(f"     - Normales (blancas): {normales}")
+                    print(f"     - Velocidad (rojas): {velocidad}")
+                    print(f"     - Prioridad (verdes): {prioridad}")
                     print(f"   Muertes: {dia['muertes']}")
                     print(f"   Reproducciones: {dia['reproducciones']}")
+                    if 'nuevas_mutaciones_velocidad' in dia:
+                        print(f"     - Nuevas mutaciones velocidad: {dia['nuevas_mutaciones_velocidad']}")
+                        print(f"     - Nuevas mutaciones prioridad: {dia['nuevas_mutaciones_prioridad']}")
                     print(f"   Comida restante al final: {dia['comida_restante']}")
                 
                 print(f"\n{'='*70}")

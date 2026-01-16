@@ -198,6 +198,8 @@ class Visualizador:
                 sobrevivientes = []
                 reproducciones = 0
                 muertes = 0
+                mutaciones_velocidad = 0
+                mutaciones_prioridad = 0
                 
                 for particula in simulacion.particulas:
                     resultado = particula.evaluar_fin_dia()
@@ -206,9 +208,18 @@ class Visualizador:
                         sobrevivientes.append(particula)
                         
                         if resultado['reproduce']:
-                            hijo = particula.crear_hijo(simulacion._obtener_nuevo_id())
+                            hijo = particula.crear_hijo(
+                                simulacion._obtener_nuevo_id(),
+                                mutacion_hijo=resultado['mutacion_hijo']
+                            )
                             sobrevivientes.append(hijo)
                             reproducciones += 1
+                            
+                            # Contar mutaciones
+                            if resultado['mutacion_hijo'] == 'velocidad':
+                                mutaciones_velocidad += 1
+                            elif resultado['mutacion_hijo'] == 'prioridad':
+                                mutaciones_prioridad += 1
                     else:
                         muertes += 1
                         particula.viva = False
@@ -216,13 +227,23 @@ class Visualizador:
                 # Actualizar partículas
                 simulacion.particulas = sobrevivientes
                 
+                # Contar partículas por tipo
+                normales = sum(1 for p in simulacion.particulas if p.mutacion == 'ninguna')
+                velocidad = sum(1 for p in simulacion.particulas if p.mutacion == 'velocidad')
+                prioridad = sum(1 for p in simulacion.particulas if p.mutacion == 'prioridad')
+                
                 # Guardar estadísticas
                 estadisticas = {
                     'dia': dia_actual,
                     'particulas_finales': len(simulacion.particulas),
                     'muertes': muertes,
                     'reproducciones': reproducciones,
-                    'comida_restante': entorno.comida_actual
+                    'comida_restante': entorno.comida_actual,
+                    'normales': normales,
+                    'velocidad': velocidad,
+                    'prioridad': prioridad,
+                    'nuevas_mutaciones_velocidad': mutaciones_velocidad,
+                    'nuevas_mutaciones_prioridad': mutaciones_prioridad
                 }
                 simulacion.historial_dias.append(estadisticas)
                 
@@ -232,6 +253,12 @@ class Visualizador:
                 print(f"Sobrevivientes: {len(simulacion.particulas)}")
                 print(f"Muertes: {muertes}")
                 print(f"Reproducciones: {reproducciones}")
+                print(f"  - Nuevas mutaciones velocidad (rojas): {mutaciones_velocidad}")
+                print(f"  - Nuevas mutaciones prioridad (verdes): {mutaciones_prioridad}")
+                print(f"Poblacion actual:")
+                print(f"  - Normales (blancas): {normales}")
+                print(f"  - Velocidad (rojas): {velocidad}")
+                print(f"  - Prioridad (verdes): {prioridad}")
                 print(f"Comida restante: {entorno.comida_actual}")
                 print(f"{'='*70}\n")
                 

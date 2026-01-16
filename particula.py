@@ -14,8 +14,10 @@ class Particula:
         pasos_realizados (int): Contador de pasos realizados
         viva (bool): Estado de la partícula
         en_casa (bool): Indica si está en casa
-        color (str): Color asignado para visualización
+        color (tuple): Color asignado para visualización
         generacion (int): Número de generación de la partícula
+        mutacion (str): Tipo de mutación ('ninguna', 'velocidad', 'prioridad')
+        velocidad_multiplicador (float): Multiplicador de velocidad
     """
     
     # Direcciones posibles: arriba, abajo, izquierda, derecha
@@ -26,7 +28,12 @@ class Particula:
         (1, 0)     # Derecha
     ]
     
-    def __init__(self, id, entorno, pos_inicial=None, color=None, generacion=0):
+    # Colores según tipo de partícula
+    COLOR_NORMAL = (1.0, 1.0, 1.0)      # Blanco
+    COLOR_VELOCIDAD = (1.0, 0.0, 0.0)   # Rojo
+    COLOR_PRIORIDAD = (0.0, 1.0, 0.0)   # Verde
+    
+    def __init__(self, id, entorno, pos_inicial=None, generacion=0, mutacion='ninguna'):
         """
         Inicializa una partícula.
         
@@ -34,12 +41,24 @@ class Particula:
             id (int): Identificador único
             entorno (Entorno): El entorno de la simulación
             pos_inicial (tuple): Posición inicial. Si es None, se asigna aleatoria
-            color (str): Color para visualización
             generacion (int): Número de generación
+            mutacion (str): Tipo de mutación ('ninguna', 'velocidad', 'prioridad')
         """
         self.id = id
         self.entorno = entorno
         self.generacion = generacion
+        self.mutacion = mutacion
+        
+        # Establecer color según mutación
+        if mutacion == 'velocidad':
+            self.color = self.COLOR_VELOCIDAD
+            self.velocidad_multiplicador = 1.5
+        elif mutacion == 'prioridad':
+            self.color = self.COLOR_PRIORIDAD
+            self.velocidad_multiplicador = 1.0
+        else:  # ninguna
+            self.color = self.COLOR_NORMAL
+            self.velocidad_multiplicador = 1.0
         
         if pos_inicial is None:
             self.pos_inicial = entorno.obtener_posicion_inicial_aleatoria()
@@ -52,15 +71,12 @@ class Particula:
         self.pasos_realizados = 0
         self.viva = True
         self.en_casa = True
-        self.color = color if color else self._generar_color_aleatorio()
-    
-    def _generar_color_aleatorio(self):
-        """Genera un color RGB aleatorio."""
-        return (random.random(), random.random(), random.random())
+        self.pasos_extra_disponibles = 0
     
     def realizar_paso(self):
         """
-        Realiza un paso aleatorio.
+        Realiza un paso aleatorio. Las partículas con mutación de velocidad
+        pueden realizar más pasos.
         
         Returns:
             bool: True si el paso fue exitoso, False si no pudo moverse
@@ -72,6 +88,27 @@ class Particula:
         if self.en_casa and self.comida_consumida >= 1:
             return True
         
+        # Calcular cuántos pasos realizar (velocidad)
+        pasos_a_realizar = 1
+        if self.mutacion == 'velocidad':
+            # 50% de probabilidad de hacer un paso extra
+            if random.random() < 0.5:
+                pasos_a_realizar = 2
+        
+        exito = False
+        for _ in range(pasos_a_realizar):
+            if self._realizar_paso_individual():
+                exito = True
+        
+        return exito
+    
+    def _realizar_paso_individual(self):
+        """
+        Realiza un paso individual.
+        
+        Returns:
+            bool: True si el paso fue exitoso
+        """
         # Intentar movimiento aleatorio
         max_intentos = 100
         for _ in range(max_intentos):
@@ -93,9 +130,10 @@ class Particula:
                 else:
                     self.en_casa = False
                 
-                # Verificar si hay comida
+                # Verificar si hay comida (la lógica de prioridad se maneja en el entorno)
                 if self.entorno.hay_comida(nueva_x, nueva_y):
-                    if self.entorno.consumir_comida(nueva_x, nueva_y):
+                    # Intentar consumir (puede fallar si otra partícula con prioridad la toma)
+                    if self.entorno.consumir_comida(nueva_x, nueva_y, self):
                         self.comida_consumida += 1
                 
                 return True
@@ -107,29 +145,48 @@ class Particula:
         Evalúa el estado de la partícula al final del día.
         
         Returns:
-            dict: Resultado con 'sobrevive' y 'reproduce'
+            dict: Resultado con 'sobrevive', 'reproduce' y 'mutacion_hijo'
         """
         resultado = {
             'sobrevive': False,
-            'reproduce': False
+            'reproduce': False,
+            'mutacion_hijo': 'ninguna'
         }
         
-        # Caso 3: Comió al menos 1 y está en casa
+        # Caso: Comió al menos 1 y está en casa
         if self.comida_consumida >= 1 and self.en_casa:
             resultado['sobrevive'] = True
             
-            # Caso 4: Comió 2 o más y está en casa
+            # Caso: Comió 2 o más y está en casa - se reproduce
             if self.comida_consumida >= 2:
                 resultado['reproduce'] = True
+                
+                # Determinar mutación del hijo
+                if self.comida_consumida >= 3:
+                    # Comió 3 o más: el hijo nace mutado
+                    if self.mutacion == 'ninguna':
+                        # Padre sin mutación: 50% velocidad, 50% prioridad
+                        resultado['mutacion_hijo'] = random.choice(['velocidad', 'prioridad'])
+                    else:
+                        # Padre mutado: 75% heredar mutación, 25% sin mutación
+                        if random.random() < 0.75:
+                            resultado['mutacion_hijo'] = self.mutacion
+                        else:
+                            resultado['mutacion_hijo'] = 'ninguna'
+                else:
+                    # Comió 2: hijo sin mutación o hereda según padre
+                    if self.mutacion == 'ninguna':
+                        resultado['mutacion_hijo'] = 'ninguna'
+                    else:
+                        # 75% heredar mutación, 25% sin mutación
+                        if random.random() < 0.75:
+                            resultado['mutacion_hijo'] = self.mutacion
+                        else:
+                            resultado['mutacion_hijo'] = 'ninguna'
         
-        # Caso 5: No comió pero está en casa (debe salir de nuevo)
+        # Caso: No comió pero está en casa (debe salir de nuevo)
         elif self.comida_consumida == 0 and self.en_casa:
-            # La partícula sobrevive pero reinicia su búsqueda
             resultado['sobrevive'] = True
-        
-        # Casos 1 y 2: Muere por no estar en casa
-        else:
-            resultado['sobrevive'] = False
         
         return resultado
     
@@ -143,12 +200,13 @@ class Particula:
         self.posicion_actual = self.pos_inicial
         self.en_casa = True
     
-    def crear_hijo(self, nuevo_id):
+    def crear_hijo(self, nuevo_id, mutacion_hijo='ninguna'):
         """
-        Crea una partícula hija con las mismas características.
+        Crea una partícula hija.
         
         Args:
             nuevo_id (int): ID para la nueva partícula
+            mutacion_hijo (str): Tipo de mutación del hijo
             
         Returns:
             Particula: Nueva partícula hija
@@ -157,8 +215,8 @@ class Particula:
             id=nuevo_id,
             entorno=self.entorno,
             pos_inicial=self.pos_inicial,
-            color=self.color,
-            generacion=self.generacion + 1
+            generacion=self.generacion + 1,
+            mutacion=mutacion_hijo
         )
     
     def obtener_info(self):
@@ -176,5 +234,6 @@ class Particula:
             'pasos_realizados': self.pasos_realizados,
             'viva': self.viva,
             'en_casa': self.en_casa,
-            'color': self.color
+            'color': self.color,
+            'mutacion': self.mutacion
         }
