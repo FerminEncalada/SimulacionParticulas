@@ -18,7 +18,13 @@ def main():
         print("-" * 70)
         ancho = int(input("Ancho del entorno (default: 40): ") or "40")
         alto = int(input("Alto del entorno (default: 40): ") or "40")
-        porcentaje_comida = float(input("Porcentaje de comida 0-1 (default: 0.15): ") or "0.15")
+        
+        print("\nRANGO DE COMIDA DIARIA (variabilidad realista)")
+        print("-" * 70)
+        print("La comida variara aleatoriamente cada dia dentro del rango establecido")
+        print("Ejemplos: 0.10-0.25 (escasez a normal), 0.15-0.30 (normal a abundante)")
+        porcentaje_min = float(input("Porcentaje MINIMO de comida 0-1 (default: 0.10): ") or "0.10")
+        porcentaje_max = float(input("Porcentaje MAXIMO de comida 0-1 (default: 0.25): ") or "0.25")
         
         print("\nCONFIGURACION DE LA SIMULACION")
         print("-" * 70)
@@ -43,8 +49,16 @@ def main():
         print("Error: Las dimensiones deben ser positivas")
         return
     
-    if porcentaje_comida < 0 or porcentaje_comida > 1:
-        print("Error: El porcentaje de comida debe estar entre 0 y 1")
+    if porcentaje_min < 0 or porcentaje_min > 1:
+        print("Error: El porcentaje minimo debe estar entre 0 y 1")
+        return
+    
+    if porcentaje_max < 0 or porcentaje_max > 1:
+        print("Error: El porcentaje maximo debe estar entre 0 y 1")
+        return
+    
+    if porcentaje_min > porcentaje_max:
+        print("Error: El porcentaje minimo no puede ser mayor que el maximo")
         return
     
     if num_particulas <= 0 or pasos_por_dia <= 0:
@@ -53,7 +67,9 @@ def main():
     
     # ==================== CREAR SIMULACIÓN ====================
     print("\nInicializando simulacion...")
-    entorno = Entorno(ancho=ancho, alto=alto, porcentaje_comida=porcentaje_comida)
+    entorno = Entorno(ancho=ancho, alto=alto, 
+                     porcentaje_comida_min=porcentaje_min, 
+                     porcentaje_comida_max=porcentaje_max)
     simulacion = Simulacion(
         entorno=entorno,
         num_particulas_inicial=num_particulas,
@@ -140,8 +156,11 @@ def main():
                     normales = dia.get('normales', 0)
                     velocidad = dia.get('velocidad', 0)
                     prioridad = dia.get('prioridad', 0)
+                    tipo_dia = dia.get('tipo_dia', 'N/A')
+                    porcentaje = dia.get('porcentaje_comida', 0)
+                    comida_inicial = dia.get('comida_inicial', 0)
                     
-                    print(f"\nDIA {dia['dia']}:")
+                    print(f"\nDIA {dia['dia']} - {tipo_dia} ({porcentaje*100:.1f}% comida, {comida_inicial} unidades):")
                     print(f"   Particulas al final: {dia['particulas_finales']}")
                     print(f"     - Normales (blancas): {normales}")
                     print(f"     - Velocidad (rojas): {velocidad}")

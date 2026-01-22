@@ -243,6 +243,9 @@ class Visualizador:
                     'muertes': muertes,
                     'reproducciones': reproducciones,
                     'comida_restante': entorno.comida_actual,
+                    'comida_inicial': entorno.comida_total,
+                    'porcentaje_comida': entorno.porcentaje_comida_actual,
+                    'tipo_dia': entorno.obtener_info_comida()['tipo_dia'],
                     'normales': normales,
                     'velocidad': velocidad,
                     'prioridad': prioridad,
@@ -268,7 +271,10 @@ class Visualizador:
                 
                 # REESTABLECER COMIDA para el nuevo día
                 entorno.reestablecer_comida()
-                print(f"Comida reestablecida: {entorno.comida_actual} unidades\n")
+                info_comida = entorno.obtener_info_comida()
+                
+                print(f"Comida reestablecida: {entorno.comida_actual} unidades ({info_comida['porcentaje']*100:.1f}%)")
+                print(f"Tipo de dia: {info_comida['tipo_dia']}\n")
                 
                 # Preparar siguiente día
                 dia_actual += 1
