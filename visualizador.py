@@ -43,16 +43,20 @@ class Visualizador:
         ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
         ax.invert_yaxis()
         
-        # Dibujar casa (bordes verdes más visibles)
+        # Dibujar casa (bordes verdes más visibles) - CORREGIDO para cubrir toda la zona
         casa_color = '#2ecc71'
         grosor_casa = 0.8
-        ax.add_patch(patches.Rectangle((0, 0), entorno.ancho - 1, grosor_casa, 
+        # Borde superior
+        ax.add_patch(patches.Rectangle((0, 0), entorno.ancho, grosor_casa, 
                                       color=casa_color, alpha=0.7, label='Casa (Zona Segura)', zorder=1))
-        ax.add_patch(patches.Rectangle((0, entorno.alto - grosor_casa), entorno.ancho - 1, grosor_casa, 
+        # Borde inferior
+        ax.add_patch(patches.Rectangle((0, entorno.alto - grosor_casa), entorno.ancho, grosor_casa, 
                                       color=casa_color, alpha=0.7, zorder=1))
-        ax.add_patch(patches.Rectangle((0, 0), grosor_casa, entorno.alto - 1, 
+        # Borde izquierdo
+        ax.add_patch(patches.Rectangle((0, 0), grosor_casa, entorno.alto, 
                                       color=casa_color, alpha=0.7, zorder=1))
-        ax.add_patch(patches.Rectangle((entorno.ancho - grosor_casa, 0), grosor_casa, entorno.alto - 1, 
+        # Borde derecho
+        ax.add_patch(patches.Rectangle((entorno.ancho - grosor_casa, 0), grosor_casa, entorno.alto, 
                                       color=casa_color, alpha=0.7, zorder=1))
         
         ax.set_xlabel('X', fontsize=14, fontweight='bold')
@@ -256,9 +260,9 @@ class Visualizador:
                 print(f"  - Nuevas mutaciones velocidad (rojas): {mutaciones_velocidad}")
                 print(f"  - Nuevas mutaciones prioridad (verdes): {mutaciones_prioridad}")
                 print(f"Poblacion actual:")
-                print(f"  - Normales (blancas): {normales}")
-                print(f"  - Velocidad (rojas): {velocidad}")
-                print(f"  - Prioridad (verdes): {prioridad}")
+                print(f"  - Normales (blancas): {normales} [Necesitan: 1 comida=sobrevivir, 2=reproducir]")
+                print(f"  - Velocidad (rojas): {velocidad} [Necesitan: 2 comidas=sobrevivir, 3=reproducir]")
+                print(f"  - Prioridad (verdes): {prioridad} [Necesitan: 1 comida=sobrevivir, 2=reproducir]")
                 print(f"Comida restante: {entorno.comida_actual}")
                 print(f"{'='*70}\n")
                 
@@ -292,6 +296,12 @@ class Visualizador:
         print("Los bordes VERDES son la CASA (zona segura)")
         print("Los puntos NARANJAS son COMIDA")
         print("La comida se RESTABLECE cada dia en nuevas posiciones")
+        print("")
+        print("TIPOS DE PARTICULAS:")
+        print("  - BLANCAS (normales): 1 comida=sobrevivir, 2=reproducirse")
+        print("  - ROJAS (velocidad): 2 comidas=sobrevivir, 3=reproducirse, se mueven 1.5x mas rapido")
+        print("  - VERDES (prioridad): 1 comida=sobrevivir, 2=reproducirse, ganan en competencia por comida")
+        print("")
         print("La simulacion continuara hasta que todas las particulas mueran")
         print("Presiona CTRL+C en la consola o cierra la ventana para detener")
         print(f"{'='*70}\n")

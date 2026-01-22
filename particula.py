@@ -84,8 +84,14 @@ class Particula:
         if not self.viva:
             return False
         
-        # Si está en casa y ya cumplió objetivo, no se mueve
-        if self.en_casa and self.comida_consumida >= 1:
+        # Determinar comida mínima para quedarse en casa según mutación
+        if self.mutacion == 'velocidad':
+            comida_minima_casa = 2
+        else:
+            comida_minima_casa = 1
+        
+        # Si está en casa y ya tiene la comida mínima para sobrevivir, no se mueve
+        if self.en_casa and self.comida_consumida >= comida_minima_casa:
             return True
         
         # Calcular cuántos pasos realizar (velocidad)
@@ -153,38 +159,62 @@ class Particula:
             'mutacion_hijo': 'ninguna'
         }
         
-        # Caso: Comió al menos 1 y está en casa
-        if self.comida_consumida >= 1 and self.en_casa:
+        # Determinar requisitos según mutación
+        if self.mutacion == 'velocidad':
+            # Mutación velocidad: necesita 2 comidas para sobrevivir, 3 para reproducirse
+            comida_minima_supervivencia = 2
+            comida_minima_reproduccion = 3
+        else:
+            # Normal y prioridad: 1 comida para sobrevivir, 2 para reproducirse
+            comida_minima_supervivencia = 1
+            comida_minima_reproduccion = 2
+        
+        # Verificar supervivencia
+        if self.comida_consumida >= comida_minima_supervivencia and self.en_casa:
             resultado['sobrevive'] = True
             
-            # Caso: Comió 2 o más y está en casa - se reproduce
-            if self.comida_consumida >= 2:
+            # Verificar reproducción
+            if self.comida_consumida >= comida_minima_reproduccion:
                 resultado['reproduce'] = True
                 
                 # Determinar mutación del hijo
-                if self.comida_consumida >= 3:
-                    # Comió 3 o más: el hijo nace mutado
-                    if self.mutacion == 'ninguna':
-                        # Padre sin mutación: 50% velocidad, 50% prioridad
+                if self.mutacion == 'velocidad':
+                    # Para velocidad, necesita 3+ comidas para mutar al hijo
+                    if self.comida_consumida >= 3:
+                        # 75% heredar velocidad, 25% sin mutación
+                        if random.random() < 0.75:
+                            resultado['mutacion_hijo'] = 'velocidad'
+                        else:
+                            resultado['mutacion_hijo'] = 'ninguna'
+                    # Si comió exactamente 2, no hay reproducción para velocidad
+                    # (ya que necesita 3 mínimo)
+                    else:
+                        resultado['reproduce'] = False
+                        
+                elif self.mutacion == 'prioridad':
+                    # Prioridad se reproduce con 2+ comidas
+                    if self.comida_consumida >= 3:
+                        # Comió 3+: 75% heredar prioridad, 25% sin mutación
+                        if random.random() < 0.75:
+                            resultado['mutacion_hijo'] = 'prioridad'
+                        else:
+                            resultado['mutacion_hijo'] = 'ninguna'
+                    else:
+                        # Comió 2: 75% heredar prioridad, 25% sin mutación
+                        if random.random() < 0.75:
+                            resultado['mutacion_hijo'] = 'prioridad'
+                        else:
+                            resultado['mutacion_hijo'] = 'ninguna'
+                            
+                else:  # ninguna mutación
+                    if self.comida_consumida >= 3:
+                        # Comió 3+: 50% velocidad, 50% prioridad
                         resultado['mutacion_hijo'] = random.choice(['velocidad', 'prioridad'])
                     else:
-                        # Padre mutado: 75% heredar mutación, 25% sin mutación
-                        if random.random() < 0.75:
-                            resultado['mutacion_hijo'] = self.mutacion
-                        else:
-                            resultado['mutacion_hijo'] = 'ninguna'
-                else:
-                    # Comió 2: hijo sin mutación o hereda según padre
-                    if self.mutacion == 'ninguna':
+                        # Comió 2: hijo sin mutación
                         resultado['mutacion_hijo'] = 'ninguna'
-                    else:
-                        # 75% heredar mutación, 25% sin mutación
-                        if random.random() < 0.75:
-                            resultado['mutacion_hijo'] = self.mutacion
-                        else:
-                            resultado['mutacion_hijo'] = 'ninguna'
         
-        # Caso: No comió pero está en casa (debe salir de nuevo)
+        # Caso especial: No comió pero está en casa (debe salir de nuevo)
         elif self.comida_consumida == 0 and self.en_casa:
             resultado['sobrevive'] = True
         
