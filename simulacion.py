@@ -8,15 +8,19 @@ class Simulacion:
     Attributes:
         entorno (Entorno): El entorno de la simulación
         particulas (list): Lista de partículas activas
+        depredadores (list): Lista de depredadores activos
         num_particulas_inicial (int): Número inicial de partículas
         pasos_por_dia (int): Número de pasos que dura un día
         dia_actual (int): Día actual de la simulación
         contador_id (int): Contador para asignar IDs únicos
         historial_dias (list): Historial de estadísticas por día
         todas_particulas_dias (list): Lista de todas las partículas por día (para animación)
+        frecuencia_depredadores (int): Cada cuántos días aparecen depredadores
+        cantidad_depredadores (int): Cuántos depredadores aparecen
     """
     
-    def __init__(self, entorno, num_particulas_inicial=10, pasos_por_dia=100):
+    def __init__(self, entorno, num_particulas_inicial=10, pasos_por_dia=100, 
+                 frecuencia_depredadores=2, cantidad_depredadores=1):
         """
         Inicializa la simulación.
         
@@ -24,6 +28,8 @@ class Simulacion:
             entorno (Entorno): El entorno donde se realizará la simulación
             num_particulas_inicial (int): Número de partículas al inicio
             pasos_por_dia (int): Cuántos pasos dura un día
+            frecuencia_depredadores (int): Cada cuántos días aparecen depredadores
+            cantidad_depredadores (int): Cuántos depredadores aparecen
         """
         self.entorno = entorno
         self.num_particulas_inicial = num_particulas_inicial
@@ -32,6 +38,9 @@ class Simulacion:
         self.contador_id = 0
         self.historial_dias = []
         self.todas_particulas_dias = []
+        self.frecuencia_depredadores = frecuencia_depredadores
+        self.cantidad_depredadores = cantidad_depredadores
+        self.depredadores = []
         
         # Crear partículas iniciales
         self.particulas = []
@@ -42,9 +51,45 @@ class Simulacion:
         for _ in range(self.num_particulas_inicial):
             particula = Particula(
                 id=self._obtener_nuevo_id(),
-                entorno=self.entorno
+                entorno=self.entorno,
+                es_depredador=False
             )
             self.particulas.append(particula)
+    
+    def _generar_depredadores(self):
+        """Genera depredadores si corresponde al día actual."""
+        if self.frecuencia_depredadores > 0 and self.dia_actual % self.frecuencia_depredadores == 0:
+            for _ in range(self.cantidad_depredadores):
+                depredador = Particula(
+                    id=self._obtener_nuevo_id(),
+                    entorno=self.entorno,
+                    es_depredador=True
+                )
+                self.depredadores.append(depredador)
+            return True
+        return False
+    
+    def _procesar_ataques_depredadores(self):
+        """Procesa los ataques de depredadores a partículas.
+        Los depredadores solo pueden atacar FUERA de la zona segura."""
+        muertes_por_depredador = 0
+        
+        for depredador in self.depredadores:
+            pos_dep = depredador.posicion_actual
+            
+            # Verificar que el depredador NO esté en zona segura
+            if self.entorno.es_casa(pos_dep[0], pos_dep[1]):
+                continue  # No puede atacar desde la zona segura
+            
+            # Buscar partículas en la misma posición
+            for particula in self.particulas:
+                if particula.viva and particula.posicion_actual == pos_dep:
+                    # La partícula tampoco debe estar en zona segura
+                    if not self.entorno.es_casa(particula.posicion_actual[0], particula.posicion_actual[1]):
+                        if particula.recibir_mordida():
+                            muertes_por_depredador += 1
+        
+        return muertes_por_depredador
     
     def _obtener_nuevo_id(self):
         """Obtiene un nuevo ID único para una partícula."""

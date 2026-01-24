@@ -136,7 +136,14 @@ class Visualizador:
             
             # Realizar un paso para cada partícula
             for particula in simulacion.particulas:
-                particula.realizar_paso()
+                particula.realizar_paso(depredadores=simulacion.depredadores)
+            
+            # Realizar un paso para cada depredador
+            for depredador in simulacion.depredadores:
+                depredador.realizar_paso()
+            
+            # Procesar ataques después de que todos se movieron
+            simulacion._procesar_ataques_depredadores()
             
             paso_en_dia += 1
             
@@ -149,40 +156,58 @@ class Visualizador:
                 scatter_comida.set_offsets(np.empty((0, 2)))
             
             # Dibujar partículas y sus caminos
-            for i, particula in enumerate(simulacion.particulas):
-                # Dibujar camino completo (más grueso y visible)
-                if len(particula.camino) > 1:
-                    xs = [pos[0] for pos in particula.camino]
-                    ys = [pos[1] for pos in particula.camino]
+            todas_entidades = list(simulacion.particulas) + list(simulacion.depredadores)
+            
+            for entidad in todas_entidades:
+                # Dibujar camino completo
+                if len(entidad.camino) > 1:
+                    xs = [pos[0] for pos in entidad.camino]
+                    ys = [pos[1] for pos in entidad.camino]
                     linea, = ax.plot(xs, ys, '-', linewidth=2.5, 
-                                   color=particula.color, alpha=0.6, zorder=2)
+                                   color=entidad.color, alpha=0.6, zorder=2)
                     elementos_particulas.append(linea)
                 
-                # Dibujar posición actual (más grande)
-                x, y = particula.posicion_actual
-                punto = ax.scatter([x], [y], c=[particula.color], 
-                                 s=300, edgecolors='black', linewidths=3, 
+                # Dibujar posición actual
+                x, y = entidad.posicion_actual
+                
+                # Depredadores más grandes
+                tamano = 400 if entidad.es_depredador else 300
+                
+                punto = ax.scatter([x], [y], c=[entidad.color], 
+                                 s=tamano, edgecolors='black', linewidths=3, 
                                  zorder=5, alpha=1.0)
                 elementos_particulas.append(punto)
                 
-                # Mostrar ID (más visible)
-                texto = ax.text(x, y - 2.5, f'#{particula.id}', 
-                              fontsize=10, ha='center', va='top', fontweight='bold',
-                              bbox=dict(boxstyle='round,pad=0.4', 
-                                      facecolor='white', alpha=0.9, 
-                                      edgecolor='black', linewidth=1.5),
+                # Solo mostrar comida para partículas normales
+                if not entidad.es_depredador and entidad.comida_consumida > 0:
+                    comida_text = ax.text(x, y, f'{entidad.comida_consumida}', 
+                                        fontsize=10, ha='center', va='center',
+                                        color='black', fontweight='bold',
+                                        zorder=7)
+                    elementos_particulas.append(comida_text)
+                
+                # Mostrar ID fuera
+                if entidad.es_depredador:
+                    id_texto = f'D{entidad.id}'
+                else:
+                    id_texto = f'#{entidad.id}'
+                
+                texto = ax.text(x, y - 1.2, id_texto, 
+                              fontsize=7, ha='center', va='bottom', fontweight='bold',
+                              color='black',
+                              bbox=dict(boxstyle='round,pad=0.2', 
+                                      facecolor='white', alpha=0.8, 
+                                      edgecolor='none'),
                               zorder=6)
                 elementos_particulas.append(texto)
                 
-                # Indicador de comida consumida (sin emoji problemático)
-                if particula.comida_consumida > 0:
-                    comida_text = ax.text(x, y + 2.5, f'x{particula.comida_consumida}', 
-                                        fontsize=11, ha='center', va='bottom',
-                                        bbox=dict(boxstyle='round,pad=0.3', 
-                                                facecolor='#ffeb3b', alpha=0.9,
-                                                edgecolor='#f57c00', linewidth=1.5),
-                                        zorder=6, fontweight='bold')
-                    elementos_particulas.append(comida_text)
+                # Indicador de mordidas para verdes
+                if not entidad.es_depredador and entidad.mordidas_recibidas > 0:
+                    mordida_text = ax.text(x, y + 1.2, f'!{entidad.mordidas_recibidas}', 
+                                          fontsize=7, ha='center', va='top',
+                                          color='red', fontweight='bold',
+                                          zorder=7)
+                    elementos_particulas.append(mordida_text)
             
             # Actualizar título
             progreso = (paso_en_dia / pasos_por_dia) * 100
@@ -191,6 +216,7 @@ class Visualizador:
             # Actualizar contador
             contador_texto.set_text(
                 f'Particulas: {len(simulacion.particulas)}\n'
+                f'Depredadores: {len(simulacion.depredadores)}\n'
                 f'Comida: {len(entorno.posiciones_comida)}\n'
                 f'Dia: {dia_actual}\n'
                 f'Paso: {paso_en_dia}/{pasos_por_dia}'
@@ -198,6 +224,12 @@ class Visualizador:
             
             # Verificar si terminó el día
             if paso_en_dia >= pasos_por_dia:
+                # Procesar ataques de depredadores
+                muertes_depredador = simulacion._procesar_ataques_depredadores()
+                
+                # Eliminar depredadores al final del día
+                simulacion.depredadores = []
+                
                 # Evaluar fin del día
                 sobrevivientes = []
                 reproducciones = 0
@@ -206,6 +238,11 @@ class Visualizador:
                 mutaciones_prioridad = 0
                 
                 for particula in simulacion.particulas:
+                    # Solo evaluar partículas vivas
+                    if not particula.viva:
+                        muertes += 1
+                        continue
+                    
                     resultado = particula.evaluar_fin_dia()
                     
                     if resultado['sobrevive']:
@@ -259,13 +296,15 @@ class Visualizador:
                 print(f"{'='*70}")
                 print(f"Sobrevivientes: {len(simulacion.particulas)}")
                 print(f"Muertes: {muertes}")
+                if muertes_depredador > 0:
+                    print(f"  - Por depredadores: {muertes_depredador}")
                 print(f"Reproducciones: {reproducciones}")
                 print(f"  - Nuevas mutaciones velocidad (rojas): {mutaciones_velocidad}")
                 print(f"  - Nuevas mutaciones prioridad (verdes): {mutaciones_prioridad}")
                 print(f"Poblacion actual:")
                 print(f"  - Normales (blancas): {normales} [Necesitan: 1 comida=sobrevivir, 2=reproducir]")
-                print(f"  - Velocidad (rojas): {velocidad} [Necesitan: 2 comidas=sobrevivir, 3=reproducir]")
-                print(f"  - Prioridad (verdes): {prioridad} [Necesitan: 1 comida=sobrevivir, 2=reproducir]")
+                print(f"  - Velocidad (rojas): {velocidad} [Necesitan: 2 comidas=sobrevivir, 3=reproducir] [Huyen de depredadores]")
+                print(f"  - Prioridad (verdes): {prioridad} [Necesitan: 1 comida=sobrevivir, 2=reproducir] [Resisten 2 mordidas]")
                 print(f"Comida restante: {entorno.comida_actual}")
                 print(f"{'='*70}\n")
                 
@@ -274,7 +313,12 @@ class Visualizador:
                 info_comida = entorno.obtener_info_comida()
                 
                 print(f"Comida reestablecida: {entorno.comida_actual} unidades ({info_comida['porcentaje']*100:.1f}%)")
-                print(f"Tipo de dia: {info_comida['tipo_dia']}\n")
+                print(f"Tipo de dia: {info_comida['tipo_dia']}")
+                
+                # Generar depredadores si corresponde
+                if simulacion._generar_depredadores():
+                    print(f"APARECEN {len(simulacion.depredadores)} DEPREDADOR(ES) (particulas negras)")
+                print()
                 
                 # Preparar siguiente día
                 dia_actual += 1

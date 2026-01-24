@@ -3,21 +3,6 @@ import random
 class Particula:
     """
     Representa una partícula (ser vivo) en la simulación.
-    
-    Attributes:
-        id (int): Identificador único de la partícula
-        entorno (Entorno): Referencia al entorno
-        pos_inicial (tuple): Posición inicial (casa)
-        posicion_actual (tuple): Posición actual (x, y)
-        comida_consumida (int): Cantidad de comida consumida en el día
-        camino (list): Lista de posiciones visitadas
-        pasos_realizados (int): Contador de pasos realizados
-        viva (bool): Estado de la partícula
-        en_casa (bool): Indica si está en casa
-        color (tuple): Color asignado para visualización
-        generacion (int): Número de generación de la partícula
-        mutacion (str): Tipo de mutación ('ninguna', 'velocidad', 'prioridad')
-        velocidad_multiplicador (float): Multiplicador de velocidad
     """
     
     # Direcciones posibles: arriba, abajo, izquierda, derecha
@@ -32,8 +17,9 @@ class Particula:
     COLOR_NORMAL = (1.0, 1.0, 1.0)      # Blanco
     COLOR_VELOCIDAD = (1.0, 0.0, 0.0)   # Rojo
     COLOR_PRIORIDAD = (0.0, 1.0, 0.0)   # Verde
+    COLOR_DEPREDADOR = (0.0, 0.0, 0.0)  # Negro
     
-    def __init__(self, id, entorno, pos_inicial=None, generacion=0, mutacion='ninguna'):
+    def __init__(self, id, entorno, pos_inicial=None, generacion=0, mutacion='ninguna', es_depredador=False):
         """
         Inicializa una partícula.
         
@@ -43,14 +29,20 @@ class Particula:
             pos_inicial (tuple): Posición inicial. Si es None, se asigna aleatoria
             generacion (int): Número de generación
             mutacion (str): Tipo de mutación ('ninguna', 'velocidad', 'prioridad')
+            es_depredador (bool): Si es un depredador
         """
         self.id = id
         self.entorno = entorno
         self.generacion = generacion
         self.mutacion = mutacion
+        self.es_depredador = es_depredador
+        self.mordidas_recibidas = 0
         
-        # Establecer color según mutación
-        if mutacion == 'velocidad':
+        # Establecer color según tipo
+        if es_depredador:
+            self.color = self.COLOR_DEPREDADOR
+            self.velocidad_multiplicador = 1.0
+        elif mutacion == 'velocidad':
             self.color = self.COLOR_VELOCIDAD
             self.velocidad_multiplicador = 1.5
         elif mutacion == 'prioridad':
@@ -61,7 +53,7 @@ class Particula:
             self.velocidad_multiplicador = 1.0
         
         if pos_inicial is None:
-            self.pos_inicial = entorno.obtener_posicion_inicial_aleatoria()
+            self.pos_inicial = entorno.obtener_posicion_inicial_aleatoria(es_depredador=es_depredador)
         else:
             self.pos_inicial = pos_inicial
         
@@ -71,18 +63,83 @@ class Particula:
         self.pasos_realizados = 0
         self.viva = True
         self.en_casa = True
-        self.pasos_extra_disponibles = 0
     
-    def realizar_paso(self):
+    def detectar_depredador_cercano(self, depredadores):
+        """
+        Detecta si hay un depredador a un paso de distancia.
+        
+        Args:
+            depredadores (list): Lista de depredadores en el mapa
+            
+        Returns:
+            tuple: Posición del depredador más cercano o None
+        """
+        if not self.mutacion == 'velocidad':
+            return None
+        
+        x, y = self.posicion_actual
+        
+        for depredador in depredadores:
+            dx, dy = depredador.posicion_actual
+            # Verificar si está a exactamente un paso
+            if abs(x - dx) + abs(y - dy) == 1:
+                return depredador.posicion_actual
+        
+        return None
+    
+    def huir_de_depredador(self, pos_depredador):
+        """
+        Intenta moverse en dirección opuesta al depredador.
+        
+        Args:
+            pos_depredador (tuple): Posición del depredador
+            
+        Returns:
+            bool: True si logró huir
+        """
+        x, y = self.posicion_actual
+        dx, dy = pos_depredador
+        
+        # Calcular dirección opuesta
+        dir_x = 0 if x == dx else (1 if x > dx else -1)
+        dir_y = 0 if y == dy else (1 if y > dy else -1)
+        
+        # Intentar moverse en dirección opuesta
+        nueva_x = x + dir_x
+        nueva_y = y + dir_y
+        
+        if self.entorno.es_posicion_valida(nueva_x, nueva_y):
+            self.posicion_actual = (nueva_x, nueva_y)
+            self.camino.append(self.posicion_actual)
+            self.pasos_realizados += 1
+            
+            # Actualizar estado de casa
+            if self.entorno.es_casa(nueva_x, nueva_y):
+                self.en_casa = True
+            else:
+                self.en_casa = False
+            
+            return True
+        
+        return False
+    
+    def realizar_paso(self, depredadores=None):
         """
         Realiza un paso aleatorio. Las partículas con mutación de velocidad
-        pueden realizar más pasos.
+        pueden realizar más pasos y huir de depredadores.
+        
+        Args:
+            depredadores (list): Lista de depredadores (solo para partículas con velocidad)
         
         Returns:
             bool: True si el paso fue exitoso, False si no pudo moverse
         """
         if not self.viva:
             return False
+        
+        # Los depredadores siempre se mueven
+        if self.es_depredador:
+            return self._realizar_paso_individual()
         
         # Determinar comida mínima para quedarse en casa según mutación
         if self.mutacion == 'velocidad':
@@ -93,6 +150,15 @@ class Particula:
         # Si está en casa y ya tiene la comida mínima para sobrevivir, no se mueve
         if self.en_casa and self.comida_consumida >= comida_minima_casa:
             return True
+        
+        # Partículas rojas detectan y huyen de depredadores
+        if self.mutacion == 'velocidad' and depredadores:
+            pos_depredador = self.detectar_depredador_cercano(depredadores)
+            if pos_depredador:
+                # Intentar huir
+                if self.huir_de_depredador(pos_depredador):
+                    # Después de huir, sigue con su movimiento normal
+                    pass
         
         # Calcular cuántos pasos realizar (velocidad)
         pasos_a_realizar = 1
@@ -126,6 +192,10 @@ class Particula:
             
             # Verificar si el movimiento es válido
             if self.entorno.es_posicion_valida(nueva_x, nueva_y):
+                # RESTRICCIÓN: Los depredadores NO pueden entrar a la zona segura
+                if self.es_depredador and self.entorno.es_casa(nueva_x, nueva_y):
+                    continue  # Intentar otra dirección
+                
                 self.posicion_actual = (nueva_x, nueva_y)
                 self.camino.append(self.posicion_actual)
                 self.pasos_realizados += 1
@@ -136,12 +206,34 @@ class Particula:
                 else:
                     self.en_casa = False
                 
-                # Verificar si hay comida (la lógica de prioridad se maneja en el entorno)
-                if self.entorno.hay_comida(nueva_x, nueva_y):
-                    # Intentar consumir (puede fallar si otra partícula con prioridad la toma)
-                    if self.entorno.consumir_comida(nueva_x, nueva_y, self):
-                        self.comida_consumida += 1
+                # Solo las partículas normales comen (depredadores no)
+                if not self.es_depredador:
+                    if self.entorno.hay_comida(nueva_x, nueva_y):
+                        if self.entorno.consumir_comida(nueva_x, nueva_y, self):
+                            self.comida_consumida += 1
                 
+                return True
+        
+        return False
+    
+    def recibir_mordida(self):
+        """
+        Recibe una mordida de un depredador.
+        
+        Returns:
+            bool: True si muere por la mordida
+        """
+        self.mordidas_recibidas += 1
+        
+        # Blancas y rojas mueren con 1 mordida
+        if self.mutacion in ['ninguna', 'velocidad']:
+            if self.mordidas_recibidas >= 1:
+                self.viva = False
+                return True
+        # Verdes mueren con 2 mordidas
+        elif self.mutacion == 'prioridad':
+            if self.mordidas_recibidas >= 2:
+                self.viva = False
                 return True
         
         return False
@@ -161,11 +253,9 @@ class Particula:
         
         # Determinar requisitos según mutación
         if self.mutacion == 'velocidad':
-            # Mutación velocidad: necesita 2 comidas para sobrevivir, 3 para reproducirse
             comida_minima_supervivencia = 2
             comida_minima_reproduccion = 3
         else:
-            # Normal y prioridad: 1 comida para sobrevivir, 2 para reproducirse
             comida_minima_supervivencia = 1
             comida_minima_reproduccion = 2
         
@@ -179,28 +269,21 @@ class Particula:
                 
                 # Determinar mutación del hijo
                 if self.mutacion == 'velocidad':
-                    # Para velocidad, necesita 3+ comidas para mutar al hijo
                     if self.comida_consumida >= 3:
-                        # 75% heredar velocidad, 25% sin mutación
                         if random.random() < 0.75:
                             resultado['mutacion_hijo'] = 'velocidad'
                         else:
                             resultado['mutacion_hijo'] = 'ninguna'
-                    # Si comió exactamente 2, no hay reproducción para velocidad
-                    # (ya que necesita 3 mínimo)
                     else:
                         resultado['reproduce'] = False
                         
                 elif self.mutacion == 'prioridad':
-                    # Prioridad se reproduce con 2+ comidas
                     if self.comida_consumida >= 3:
-                        # Comió 3+: 75% heredar prioridad, 25% sin mutación
                         if random.random() < 0.75:
                             resultado['mutacion_hijo'] = 'prioridad'
                         else:
                             resultado['mutacion_hijo'] = 'ninguna'
                     else:
-                        # Comió 2: 75% heredar prioridad, 25% sin mutación
                         if random.random() < 0.75:
                             resultado['mutacion_hijo'] = 'prioridad'
                         else:
@@ -208,13 +291,11 @@ class Particula:
                             
                 else:  # ninguna mutación
                     if self.comida_consumida >= 3:
-                        # Comió 3+: 50% velocidad, 50% prioridad
                         resultado['mutacion_hijo'] = random.choice(['velocidad', 'prioridad'])
                     else:
-                        # Comió 2: hijo sin mutación
                         resultado['mutacion_hijo'] = 'ninguna'
         
-        # Caso especial: No comió pero está en casa (debe salir de nuevo)
+        # Caso especial: No comió pero está en casa
         elif self.comida_consumida == 0 and self.en_casa:
             resultado['sobrevive'] = True
         
@@ -229,6 +310,7 @@ class Particula:
         self.pasos_realizados = 0
         self.posicion_actual = self.pos_inicial
         self.en_casa = True
+        self.mordidas_recibidas = 0
     
     def crear_hijo(self, nuevo_id, mutacion_hijo='ninguna'):
         """
@@ -246,7 +328,8 @@ class Particula:
             entorno=self.entorno,
             pos_inicial=self.pos_inicial,
             generacion=self.generacion + 1,
-            mutacion=mutacion_hijo
+            mutacion=mutacion_hijo,
+            es_depredador=False
         )
     
     def obtener_info(self):
@@ -265,5 +348,7 @@ class Particula:
             'viva': self.viva,
             'en_casa': self.en_casa,
             'color': self.color,
-            'mutacion': self.mutacion
+            'mutacion': self.mutacion,
+            'es_depredador': self.es_depredador,
+            'mordidas_recibidas': self.mordidas_recibidas
         }
