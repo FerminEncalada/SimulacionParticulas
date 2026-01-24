@@ -225,155 +225,32 @@ class Entorno:
         """
         return (self.ancho, self.alto)
     
-    def obtener_posicion_inicial_aleatoria(self):
+    def obtener_posicion_inicial_aleatoria(self, es_depredador=False):
         """
-        Retorna una posición aleatoria en los bordes del mapa (casa).
-        
-        Returns:
-            tuple: (x, y) posición inicial en un borde
-        """
-        borde = random.choice(['arriba', 'abajo', 'izquierda', 'derecha'])
-        
-        if borde == 'arriba':
-            return (random.randint(0, self.ancho - 1), 0)
-        elif borde == 'abajo':
-            return (random.randint(0, self.ancho - 1), self.alto - 1)
-        elif borde == 'izquierda':
-            return (0, random.randint(0, self.alto - 1))
-        else:  # derecha
-            return (self.ancho - 1, random.randint(0, self.alto - 1))
-    
-    def es_posicion_valida(self, x, y):
-        """
-        Verifica si una posición está dentro de los límites del entorno.
+        Retorna una posición aleatoria.
+        Para partículas normales: en los bordes del mapa (casa)
+        Para depredadores: DENTRO del área interna (no en bordes)
         
         Args:
-            x (int): Coordenada X
-            y (int): Coordenada Y
-            
+            es_depredador (bool): Si es un depredador. Default: False
+        
         Returns:
-            bool: True si la posición es válida, False si está fuera de límites
+            tuple: (x, y) posición inicial
         """
-        return 0 <= x < self.ancho and 0 <= y < self.alto
-    
-    def es_casa(self, x, y):
-        """
-        Verifica si una posición es casa (las paredes/bordes del mapa).
-        
-        Args:
-            x (int): Coordenada X
-            y (int): Coordenada Y
-            
-        Returns:
-            bool: True si la posición es casa (borde del mapa)
-        """
-        return (x == 0 or x == self.ancho - 1 or 
-                y == 0 or y == self.alto - 1)
-    
-    def hay_comida(self, x, y):
-        """
-        Verifica si hay comida en una posición específica.
-        
-        Args:
-            x (int): Coordenada X
-            y (int): Coordenada Y
-            
-        Returns:
-            bool: True si hay comida en esa posición
-        """
-        return (x, y) in self.posiciones_comida
-    
-    def consumir_comida(self, x, y, particula):
-        """
-        Consume la comida en una posición si existe, considerando prioridad.
-        
-        Args:
-            x (int): Coordenada X
-            y (int): Coordenada Y
-            particula (Particula): La partícula que intenta consumir
-            
-        Returns:
-            bool: True si se consumió comida, False si no había comida o perdió por prioridad
-        """
-        if (x, y) not in self.posiciones_comida:
-            return False
-        
-        # Registrar que esta partícula está en esta posición
-        pos_key = (x, y)
-        if pos_key not in self.particulas_en_posicion:
-            self.particulas_en_posicion[pos_key] = []
-        
-        # Verificar si ya hay partículas con prioridad en esta posición
-        particulas_aqui = self.particulas_en_posicion[pos_key]
-        
-        # Si la partícula actual tiene prioridad
-        if particula.mutacion == 'prioridad':
-            # Consume la comida sin importar quién más esté
-            self.posiciones_comida.remove((x, y))
-            self.comida_actual -= 1
-            # Limpiar registro de esta posición
-            if pos_key in self.particulas_en_posicion:
-                del self.particulas_en_posicion[pos_key]
-            return True
+        if es_depredador:
+            # Depredadores aparecen dentro del área interna
+            x = random.randint(1, self.ancho - 2)
+            y = random.randint(1, self.alto - 2)
+            return (x, y)
         else:
-            # Si no tiene prioridad, verificar si hay alguien con prioridad
-            for p in particulas_aqui:
-                if p.mutacion == 'prioridad':
-                    # Hay una partícula con prioridad, esta no come
-                    return False
+            # Partículas normales aparecen en los bordes
+            borde = random.choice(['arriba', 'abajo', 'izquierda', 'derecha'])
             
-            # No hay partículas con prioridad, puede comer
-            self.posiciones_comida.remove((x, y))
-            self.comida_actual -= 1
-            # Limpiar registro de esta posición
-            if pos_key in self.particulas_en_posicion:
-                del self.particulas_en_posicion[pos_key]
-            return True
-    
-    def registrar_particula_en_posicion(self, x, y, particula):
-        """
-        Registra una partícula en una posición específica.
-        
-        Args:
-            x (int): Coordenada X
-            y (int): Coordenada Y
-            particula (Particula): La partícula a registrar
-        """
-        pos_key = (x, y)
-        if pos_key not in self.particulas_en_posicion:
-            self.particulas_en_posicion[pos_key] = []
-        if particula not in self.particulas_en_posicion[pos_key]:
-            self.particulas_en_posicion[pos_key].append(particula)
-    
-    def limpiar_registro_posiciones(self):
-        """
-        Limpia el registro de partículas en posiciones.
-        """
-        self.particulas_en_posicion = {}
-    
-    def obtener_dimensiones(self):
-        """
-        Retorna las dimensiones del entorno.
-        
-        Returns:
-            tuple: (ancho, alto)
-        """
-        return (self.ancho, self.alto)
-    
-    def obtener_posicion_inicial_aleatoria(self):
-        """
-        Retorna una posición aleatoria en los bordes del mapa (casa).
-        
-        Returns:
-            tuple: (x, y) posición inicial en un borde
-        """
-        borde = random.choice(['arriba', 'abajo', 'izquierda', 'derecha'])
-        
-        if borde == 'arriba':
-            return (random.randint(0, self.ancho - 1), 0)
-        elif borde == 'abajo':
-            return (random.randint(0, self.ancho - 1), self.alto - 1)
-        elif borde == 'izquierda':
-            return (0, random.randint(0, self.alto - 1))
-        else:  # derecha
-            return (self.ancho - 1, random.randint(0, self.alto - 1))
+            if borde == 'arriba':
+                return (random.randint(0, self.ancho - 1), 0)
+            elif borde == 'abajo':
+                return (random.randint(0, self.ancho - 1), self.alto - 1)
+            elif borde == 'izquierda':
+                return (0, random.randint(0, self.alto - 1))
+            else:  # derecha
+                return (self.ancho - 1, random.randint(0, self.alto - 1))

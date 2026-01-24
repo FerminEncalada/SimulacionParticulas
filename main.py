@@ -31,6 +31,12 @@ def main():
         num_particulas = int(input("Numero de particulas iniciales (default: 3): ") or "3")
         pasos_por_dia = int(input("Pasos por dia (default: 80): ") or "80")
         
+        print("\nCONFIGURACION DE DEPREDADORES")
+        print("-" * 70)
+        print("Los depredadores son particulas negras que cazan a las demas")
+        frecuencia_dep = int(input("Frecuencia: cada cuantos dias aparecen (default: 2, 0=nunca): ") or "2")
+        cantidad_dep = int(input("Cantidad: cuantos depredadores aparecen cada vez (default: 1): ") or "1")
+        
         print("\nCONFIGURACION DE VISUALIZACION")
         print("-" * 70)
         print("Velocidades sugeridas:")
@@ -73,7 +79,9 @@ def main():
     simulacion = Simulacion(
         entorno=entorno,
         num_particulas_inicial=num_particulas,
-        pasos_por_dia=pasos_por_dia
+        pasos_por_dia=pasos_por_dia,
+        frecuencia_depredadores=frecuencia_dep,
+        cantidad_depredadores=cantidad_dep
     )
     
     # ==================== EJECUTAR SIMULACIÓN VISUAL ====================
