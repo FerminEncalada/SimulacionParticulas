@@ -37,15 +37,6 @@ def main():
         frecuencia_dep = int(input("Frecuencia: cada cuantos dias aparecen (default: 2, 0=nunca): ") or "2")
         cantidad_dep = int(input("Cantidad: cuantos depredadores aparecen cada vez (default: 1): ") or "1")
         
-        print("\nCONFIGURACION DE VISUALIZACION")
-        print("-" * 70)
-        print("Velocidades sugeridas:")
-        print("   - 10ms: Muy rapido (observacion general)")
-        print("   - 30ms: Rapido (recomendado)")
-        print("   - 50ms: Medio (buena visibilidad)")
-        print("   - 100ms: Lento (analisis detallado)")
-        intervalo = int(input("\nVelocidad en ms (default: 30): ") or "30")
-        
     except ValueError:
         print("Error: Debe ingresar valores numericos validos")
         return
@@ -90,15 +81,17 @@ def main():
     print("="*70)
     print("La ventana se abrira en unos segundos")
     print("NO cierres esta consola, aqui veras los reportes de cada dia")
+    print("")
+    print("CONTROL DE VELOCIDAD:")
+    print("  - Usa el slider en la parte inferior de la ventana")
+    print("  - Izquierda = MUY LENTO, Derecha = MUY RAPIDO")
+    print("")
     print("La simulacion continuara hasta que todas las particulas mueran")
     print("o hasta que cierres la ventana de visualizacion")
     print("="*70 + "\n")
     
     try:
-        Visualizador.simular_visualmente(
-            simulacion=simulacion,
-            intervalo=intervalo
-        )
+        Visualizador.simular_visualmente(simulacion=simulacion)
         
     except KeyboardInterrupt:
         print("\n\nSimulacion interrumpida por el usuario")
