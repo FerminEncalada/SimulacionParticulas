@@ -244,7 +244,7 @@ class Visualizador:
                     depredador.realizar_paso()
                 
                 # Procesar ataques
-                simulacion._procesar_ataques_depredadores()
+                muertes_paso = simulacion._procesar_ataques_depredadores()
                 
                 # Detectar muertes
                 for pid, (particula, pos_anterior) in particulas_vivas_antes.items():
@@ -256,20 +256,27 @@ class Visualizador:
                 
                 # Verificar fin de día
                 if paso_en_dia[0] >= pasos_por_dia:
-                    muertes_depredador = simulacion._procesar_ataques_depredadores()
+                    # Procesar ataques finales
+                    muertes_depredador_final = simulacion._procesar_ataques_depredadores()
                     num_depredadores = len(simulacion.depredadores)
+                    
+                    # Limpiar depredadores
                     simulacion.depredadores = []
                     particulas_muertas_depredador.clear()
                     
                     sobrevivientes = []
                     reproducciones = 0
                     muertes = 0
+                    muertes_totales_depredador = 0
                     mutaciones_velocidad = 0
                     mutaciones_prioridad = 0
                     
                     for particula in simulacion.particulas:
                         if not particula.viva:
                             muertes += 1
+                            # Contar si murió por depredador
+                            if particula.mordidas_recibidas > 0:
+                                muertes_totales_depredador += 1
                             continue
                         
                         resultado = particula.evaluar_fin_dia()
@@ -314,7 +321,7 @@ class Visualizador:
                         'nuevas_mutaciones_velocidad': mutaciones_velocidad,
                         'nuevas_mutaciones_prioridad': mutaciones_prioridad,
                         'depredadores_aparecidos': num_depredadores,
-                        'muertes_por_depredador': muertes_depredador
+                        'muertes_por_depredador': muertes_totales_depredador
                     }
                     simulacion.historial_dias.append(estadisticas)
                     
@@ -323,8 +330,8 @@ class Visualizador:
                     print(f"{'='*70}")
                     print(f"Sobrevivientes: {len(simulacion.particulas)}")
                     print(f"Muertes: {muertes}")
-                    if muertes_depredador > 0:
-                        print(f"  - Por depredadores: {muertes_depredador}")
+                    if muertes_totales_depredador > 0:
+                        print(f"  - Por depredadores: {muertes_totales_depredador}")
                     print(f"Reproducciones: {reproducciones}")
                     print(f"{'='*70}\n")
                     
@@ -470,7 +477,15 @@ class Visualizador:
         velocidad = [d.get('velocidad', 0) for d in historial]
         prioridad = [d.get('prioridad', 0) for d in historial]
         
-        muertes_depredador = [d.get('muertes_por_depredador', 0) for d in historial]
+        # CORRECCIÓN CRÍTICA: Asegurar que siempre haya datos de depredadores
+        muertes_depredador = []
+        for d in historial:
+            # Intentar obtener el valor, si no existe usar 0
+            valor = d.get('muertes_por_depredador', 0)
+            # Asegurar que sea un número válido
+            if valor is None:
+                valor = 0
+            muertes_depredador.append(valor)
         
         # Crear figura con mejor espaciado
         fig = plt.figure(figsize=(20, 11))
@@ -517,19 +532,32 @@ class Visualizador:
         ax4.set_title('Comida Restante al Final del Dia', fontsize=13, fontweight='bold', pad=15)
         ax4.grid(True, alpha=0.3)
         
-        # Gráfico 5: MUERTES POR DEPREDADORES
+        # Gráfico 5: MUERTES POR DEPREDADORES (CORREGIDO)
         ax5 = plt.subplot(2, 3, 5)
-        ax5.bar(dias, muertes_depredador, color='darkred', alpha=0.8, edgecolor='black', linewidth=1.5)
+        
+        # Verificar si hay datos de depredadores
+        total_muertes_dep = sum(muertes_depredador)
+        
+        if total_muertes_dep > 0:
+            # Hay muertes, mostrar el gráfico normal
+            ax5.bar(dias, muertes_depredador, color='darkred', alpha=0.8, edgecolor='black', linewidth=1.5)
+            
+            # Añadir línea de tendencia si hay múltiples días
+            if len(muertes_depredador) > 1:
+                ax5.plot(dias, muertes_depredador, 'r-', linewidth=2, alpha=0.6, label='Tendencia')
+                ax5.legend(fontsize=10)
+        else:
+            # No hay muertes, mostrar mensaje
+            ax5.text(0.5, 0.5, 'No hubo muertes\npor depredadores', 
+                    ha='center', va='center', transform=ax5.transAxes,
+                    fontsize=14, fontweight='bold', color='gray')
+        
         ax5.set_xlabel('Dia', fontsize=12, fontweight='bold')
         ax5.set_ylabel('Muertes', fontsize=12, fontweight='bold')
         ax5.set_title('Muertes Causadas por Depredadores', fontsize=13, fontweight='bold', pad=15)
         ax5.grid(True, alpha=0.3, axis='y')
         
-        if len(muertes_depredador) > 1 and sum(muertes_depredador) > 0:
-            ax5.plot(dias, muertes_depredador, 'r-', linewidth=2, alpha=0.6, label='Tendencia')
-            ax5.legend(fontsize=10)
-        
-        # Gráfico 6: Resumen (SIN EMOJIS)
+        # Gráfico 6: Resumen (CORREGIDO)
         ax6 = plt.subplot(2, 3, 6)
         ax6.axis('off')
         
@@ -546,7 +574,13 @@ class Visualizador:
         else:
             pct_normales = pct_velocidad = pct_prioridad = 0
         
-        # RESUMEN SIN EMOJIS
+        # Calcular impacto de depredadores
+        if total_muertes > 0:
+            impacto_depredadores = (total_muertes_depredador / total_muertes * 100)
+        else:
+            impacto_depredadores = 0
+        
+        # RESUMEN CORREGIDO
         resumen = f"""
 RESUMEN GENERAL
 
@@ -564,7 +598,7 @@ DISTRIBUCION FINAL:
 
 DEPREDADORES:
   Muertes causadas: {total_muertes_depredador}
-  Impacto: {(total_muertes_depredador/total_muertes*100) if total_muertes > 0 else 0:.1f}%
+  Impacto: {impacto_depredadores:.1f}%
 
 {'POBLACION SOBREVIVIO' if particulas_final > 0 else 'EXTINCION TOTAL'}
         """
@@ -574,8 +608,6 @@ DEPREDADORES:
                 bbox=dict(boxstyle='round,pad=1.2', facecolor='lightblue', 
                          alpha=0.8, edgecolor='darkblue', linewidth=2),
                 family='monospace', fontweight='bold')
-        
-        # SIN título general (eliminado plt.suptitle)
         
         plt.show()
     

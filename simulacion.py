@@ -115,25 +115,44 @@ class Simulacion:
             print(f"Pasos por día: {self.pasos_por_dia}")
             print(f"Comida disponible: {self.entorno.comida_actual}")
         
+        # Generar depredadores si corresponde
+        num_depredadores_generados = 0
+        if self._generar_depredadores():
+            num_depredadores_generados = len(self.depredadores)
+            if mostrar_progreso:
+                print(f"APARECEN {num_depredadores_generados} DEPREDADOR(ES)")
+        
         # Guardar copia profunda de las partículas para animación
         particulas_dia_copia = []
         for p in self.particulas:
-            p_copia = Particula(p.id, self.entorno, p.pos_inicial, p.color, p.generacion)
+            p_copia = Particula(p.id, self.entorno, p.pos_inicial, p.generacion, p.mutacion)
             p_copia.camino = [p.pos_inicial]
             p_copia.pasos_realizados = 0
             p_copia.comida_consumida = 0
             particulas_dia_copia.append(p_copia)
         
+        # Contador de muertes por depredador
+        muertes_por_depredador_total = 0
+        
         # Simular todos los pasos del día
         for paso in range(self.pasos_por_dia):
+            # Mover partículas normales
             for i, particula in enumerate(self.particulas):
-                particula.realizar_paso()
+                particula.realizar_paso(depredadores=self.depredadores)
                 # Sincronizar con la copia
                 if i < len(particulas_dia_copia):
                     particulas_dia_copia[i].camino = particula.camino.copy()
                     particulas_dia_copia[i].posicion_actual = particula.posicion_actual
                     particulas_dia_copia[i].comida_consumida = particula.comida_consumida
                     particulas_dia_copia[i].en_casa = particula.en_casa
+            
+            # Mover depredadores
+            for depredador in self.depredadores:
+                depredador.realizar_paso()
+            
+            # Procesar ataques después de cada paso
+            muertes_paso = self._procesar_ataques_depredadores()
+            muertes_por_depredador_total += muertes_paso
             
             if mostrar_progreso and (paso + 1) % 20 == 0:
                 progreso = ((paso + 1) / self.pasos_por_dia) * 100
@@ -143,19 +162,24 @@ class Simulacion:
         self.todas_particulas_dias.append(particulas_dia_copia)
         
         # Evaluar resultados del día
-        estadisticas = self._evaluar_fin_dia(mostrar_progreso)
+        estadisticas = self._evaluar_fin_dia(mostrar_progreso, num_depredadores_generados, muertes_por_depredador_total)
+        
+        # Limpiar depredadores al final del día
+        self.depredadores = []
         
         # Preparar siguiente día
         self._preparar_siguiente_dia()
         
         return estadisticas
     
-    def _evaluar_fin_dia(self, mostrar_info=False):
+    def _evaluar_fin_dia(self, mostrar_info=False, num_depredadores=0, muertes_por_depredador=0):
         """
         Evalúa qué partículas sobreviven y se reproducen al final del día.
         
         Args:
             mostrar_info (bool): Si True, muestra información
+            num_depredadores (int): Número de depredadores que aparecieron
+            muertes_por_depredador (int): Número de muertes causadas por depredadores
             
         Returns:
             dict: Estadísticas del día
@@ -164,8 +188,15 @@ class Simulacion:
         reproducciones = 0
         muertes = 0
         comida_total_consumida = 0
+        mutaciones_velocidad = 0
+        mutaciones_prioridad = 0
         
         for particula in self.particulas:
+            # Solo evaluar partículas que siguen vivas
+            if not particula.viva:
+                muertes += 1
+                continue
+            
             resultado = particula.evaluar_fin_dia()
             comida_total_consumida += particula.comida_consumida
             
@@ -174,15 +205,29 @@ class Simulacion:
                 
                 if resultado['reproduce']:
                     # Crear partícula hija
-                    hijo = particula.crear_hijo(self._obtener_nuevo_id())
+                    hijo = particula.crear_hijo(
+                        self._obtener_nuevo_id(),
+                        mutacion_hijo=resultado['mutacion_hijo']
+                    )
                     sobrevivientes.append(hijo)
                     reproducciones += 1
+                    
+                    # Contar nuevas mutaciones
+                    if resultado['mutacion_hijo'] == 'velocidad':
+                        mutaciones_velocidad += 1
+                    elif resultado['mutacion_hijo'] == 'prioridad':
+                        mutaciones_prioridad += 1
             else:
                 muertes += 1
                 particula.viva = False
         
         # Actualizar lista de partículas
         self.particulas = sobrevivientes
+        
+        # Contar tipos de partículas
+        normales = sum(1 for p in self.particulas if p.mutacion == 'ninguna')
+        velocidad_count = sum(1 for p in self.particulas if p.mutacion == 'velocidad')
+        prioridad = sum(1 for p in self.particulas if p.mutacion == 'prioridad')
         
         estadisticas = {
             'dia': self.dia_actual,
@@ -191,7 +236,17 @@ class Simulacion:
             'muertes': muertes,
             'reproducciones': reproducciones,
             'comida_consumida': comida_total_consumida,
-            'comida_restante': self.entorno.comida_actual
+            'comida_restante': self.entorno.comida_actual,
+            'comida_inicial': self.entorno.comida_total,
+            'porcentaje_comida': self.entorno.porcentaje_comida_actual,
+            'tipo_dia': self.entorno.obtener_info_comida()['tipo_dia'],
+            'normales': normales,
+            'velocidad': velocidad_count,
+            'prioridad': prioridad,
+            'nuevas_mutaciones_velocidad': mutaciones_velocidad,
+            'nuevas_mutaciones_prioridad': mutaciones_prioridad,
+            'depredadores_aparecidos': num_depredadores,
+            'muertes_por_depredador': muertes_por_depredador
         }
         
         self.historial_dias.append(estadisticas)
@@ -200,6 +255,8 @@ class Simulacion:
             print(f"\n  RESUMEN DEL DÍA {self.dia_actual}:")
             print(f"  Partículas al inicio: {estadisticas['particulas_iniciales']}")
             print(f"  Muertes: {muertes}")
+            if muertes_por_depredador > 0:
+                print(f"    - Por depredadores: {muertes_por_depredador}")
             print(f"  Reproducciones: {reproducciones}")
             print(f"  Partículas sobrevivientes: {len(self.particulas)}")
             print(f"  Comida consumida: {comida_total_consumida}")
@@ -210,6 +267,9 @@ class Simulacion:
     def _preparar_siguiente_dia(self):
         """Prepara todas las partículas para el siguiente día."""
         self.dia_actual += 1
+        # Reestablecer comida
+        self.entorno.reestablecer_comida()
+        # Preparar partículas
         for particula in self.particulas:
             particula.preparar_nuevo_dia()
     
